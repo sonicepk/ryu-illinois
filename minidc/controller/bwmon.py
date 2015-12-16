@@ -13,6 +13,8 @@ from ryu.lib import hub
 from bwstats import BandwidthStats
 from topo import Topology
 
+from pprint import pprint
+
 cfgfile = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                         "..", "config.txt"))
 
@@ -125,7 +127,7 @@ class BandwidthMonitor(app_manager.RyuApp):
         datapath = ev.msg.datapath
         dpid = datapath.id
 
-        # name of switch reporting data
+        # name of switch reporting data. ie s101 or s102.
         name = self.topo.dpidToName(dpid)
 
         totalDropped = 0
@@ -142,9 +144,65 @@ class BandwidthMonitor(app_manager.RyuApp):
         #  self.topo.ports[switch name][port number])
 
         # [ ADD YOUR CODE HERE ]
-
+    eswitch = self.topo.edgeSwitches
+    if name in eswitch.keys():
+        for stat in body:
+            if stat.port_no in self.topo.ports[name].values():
+                hostname = self.topo.ports[name][stat.port_no]
+                if hostname in self.topo.hosts:
+                        self.bwstats.addHostBwStat(hostname, stat.tx_bytes, stat.rx_bytes)
+    
         # periodically print tenant bandwidth usage
         self.statsReplied += 1
         if self.statsReplied == len(self.datapaths):
             self.bwstats.updateTenantStats()
             self.logger.info(self.bwstats.tenantBwString())
+
+"""self.topo..dpidToName(dpid)
+'s105'
+'s101'
+'s104'
+'s103'
+'s102'
+"""
+"""self.topo.edgeSwitches
+{'s101': s101: (101, ['h3', 'h6']),
+ 's102': s102: (102, ['h1', 'h4']),
+ 's103': s103: (103, ['h2', 'h5'])}
+"""
+"""self.topo.ports note does not contain any virtual ports ie port no 4294967294.
+{'s101': {1: 's104',
+          2: 's105',
+          3: 'h3',
+          4: 'h6',
+          'h3': 3,
+          'h6': 4,
+          's104': 1,
+          's105': 2},
+
+"""
+"""stat.port_no
+3
+1
+2
+4294967294
+3
+1
+2
+4294967294
+3
+1
+2
+4
+"""
+"""self.topo.hosts
+{'h1': h1: (10.0.0.1, 62:58:fe:52:2f:6c, s102, [0]),
+ 'h2': h2: (10.0.0.2, 06:43:f0:ab:19:69, s103, [0]),
+ 'h3': h3: (10.0.0.3, ea:ae:28:34:f8:07, s101, [1]),
+ 'h4': h4: (10.0.0.4, ee:30:9f:27:c1:11, s102, [1]),
+ 'h5': h5: (10.0.0.5, 0e:10:7c:9d:aa:92, s103, [1]),
+ 'h6': h6: (10.0.0.6, de:9a:ef:ae:0a:1f, s101, [1])}
+"""
+"""body
+OFPPortStats(port_no=3,rx_packets=932100,tx_packets=932380,rx_bytes=1379258671,tx_bytes=1414347818,rx_dropped=0,tx_dropped=0,rx_errors=0,tx_errors=0,rx_frame_err=0,rx_over_err=0,rx_crc_err=0,collisions=0,duration_sec=5347,duration_nsec=41000000)
+"""
